@@ -1,0 +1,11 @@
+name: StarForce
+version: '1.0-SNAPSHOT'
+main: me.junhyeokim.starForce.StarForce
+api-version: '1.21'
+commands:
+  stardust:
+    description: 64개의 별가루 지급
+    usage: /stardust
+  starpiece:
+    description: 64개의 별조각 지급
+    usage: /starpiece

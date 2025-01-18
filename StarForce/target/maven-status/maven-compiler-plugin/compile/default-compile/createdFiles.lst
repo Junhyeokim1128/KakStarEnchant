@@ -1,0 +1,5 @@
+me\junhyeokim\starForce\StarForce.class
+me\junhyeokim\starForce\Listener\ClickEnchantTable.class
+me\junhyeokim\starForce\Commands\GetStarPiece.class
+me\junhyeokim\starForce\Commands\GetStarDust.class
+me\junhyeokim\starForce\Listener\ClickAnvil.class
