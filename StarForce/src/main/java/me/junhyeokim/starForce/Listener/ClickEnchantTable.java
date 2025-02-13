@@ -108,18 +108,18 @@ public class ClickEnchantTable implements Listener {
                         // 랜덤으로 인첸트 추가 (기존 로직 유지)
                         if (originalEnchantmentCount == 0) {
                             addRandomEnchantmentsWithoutDuplicates(itemMeta, random, possibleEnchantments);
-                            player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_HIT, 1.0f, 1.0f);
                         }
 
                         for (int i = 0; i < originalEnchantmentCount; i++) {
                             addRandomEnchantmentsWithoutDuplicates(itemMeta, random, possibleEnchantments);
-                            player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_HIT, 1.0f, 1.0f);
+
                         }
 
                         if (originalEnchantmentCount <= 6 && random.nextInt(100) < 10) {
                             addRandomEnchantmentsWithoutDuplicates(itemMeta, random, possibleEnchantments);
                         }
 
+                        player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_HIT, 1.0f, 1.0f);
                         clickedItem.setItemMeta(itemMeta);
 
                         // ** 인첸트된 아이템을 원래 아이템과 동기화 **
