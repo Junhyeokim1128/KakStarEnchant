@@ -14,6 +14,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.nio.file.attribute.UserDefinedFileAttributeView;
 import java.util.*;
 
 public class ClickAnvil implements Listener {
@@ -30,7 +31,7 @@ public class ClickAnvil implements Listener {
     public void clickEnchantTable(PlayerInteractEvent event) {
         if (event.getAction().toString().contains("RIGHT_CLICK_BLOCK")) {
             if (event.getClickedBlock() != null && event.getClickedBlock().getType() == Material.ANVIL
-                    ||event.getClickedBlock().getType() == Material.ANVIL
+                    ||event.getClickedBlock().getType() == Material.DAMAGED_ANVIL
                     ||event.getClickedBlock().getType() == Material.CHIPPED_ANVIL) {
                 event.setCancelled(true);
 
@@ -89,18 +90,17 @@ public class ClickAnvil implements Listener {
                     return;
                 }
 
-                if (hasValidStarPiece(player)) {
-                    removeStarPiece(player);
+                ItemMeta itemMeta = clickedItem.getItemMeta();
 
-                    ItemMeta itemMeta = clickedItem.getItemMeta();
+                List<String> lore = itemMeta.hasLore() ? itemMeta.getLore() : new ArrayList<>();
+                String currentStars = lore != null && !lore.isEmpty() ? lore.get(0) : ChatColor.GOLD + "☆☆☆☆☆☆☆☆☆☆";
+
+                int starCount = (int) currentStars.chars().filter(ch -> ch == '★').count();
+
+                if (hasValidStarPiece(player, starCount)) {
+
                     if (itemMeta != null) {
-                        List<String> lore = itemMeta.hasLore() ? itemMeta.getLore() : new ArrayList<>();
-                        String currentStars = lore != null && !lore.isEmpty() ? lore.get(0) : ChatColor.GOLD + "☆☆☆☆☆☆☆☆☆☆";
 
-                        // 현재 별 개수 계산
-                        int starCount = (int) currentStars.chars().filter(ch -> ch == '★').count();
-
-                        // 강화 가능한 최대 별 개수 초과 시
                         if (starCount >= successRates.length) {
                             player.sendMessage(ChatColor.RED + "더 이상 강화를 할 수 없습니다!");
                             event.setCancelled(true);
@@ -108,28 +108,80 @@ public class ClickAnvil implements Listener {
                             return;
                         }
 
+                    removeStarPiece(player, starCount);
                         // 성공 및 파괴 여부 계산
                         boolean isSuccessful = Math.random() * 100 < successRates[starCount];
                         boolean isDestroyed = Math.random() * 100 < destructionRates[starCount];
 
-                        if (isDestroyed) {
-                            // 아이템 파괴 로직
-                            player.getInventory().removeItem(playerOriginalItems.get(player));
-                            clickedInventory.setItem(13, null);
-                            playerOriginalItems.remove(player);
-                            player.sendMessage(ChatColor.RED + "아이템이 파괴되었습니다");
-                            player.playSound(player.getLocation(), Sound.ENTITY_ITEM_BREAK, 1.0f, 1.0f);
-                        } else if (isSuccessful) {
+                        if (isSuccessful) {
                             // 강화 성공 로직
                             starCount++;
+
+                            double s_ad = 0;
+                            double s_as = 0;
+
+                            double a_ad = 0;
+                            double a_as = 0;
+
+                            double at = 0;
+                            double kr = 0;
+
+                            double h_a = 0;
+                            double c_a = 0;
+                            double l_a = 0;
+                            double b_a = 0;
+
+                            if (clickedItem.getType().name().contains("NETHERITE")) {
+                                s_ad = 8;
+                                s_as = -2.4;
+
+                                a_ad = 10;
+                                a_as = -3.0;
+
+                                at = 3;
+                                kr = 0.1;
+
+                                h_a = 3;
+                                c_a = 8;
+                                l_a = 6;
+                                b_a = 3;
+                            } else if (clickedItem.getType().name().contains("DIAMOND")) {
+                                s_ad = 7;
+                                s_as = -2.4;
+
+                                a_ad = 9;
+                                a_as = -3.0;
+
+                                at = 2;
+                                kr = 0;
+
+                                h_a = 3;
+                                c_a = 8;
+                                l_a = 6;
+                                b_a = 3;
+                            } else if (clickedItem.getType().name().contains("IRON")) {
+                                s_ad = 6;
+                                s_as = -2.4;
+
+                                a_ad = 9;
+                                a_as = -3.1;
+
+                                at = 0;
+                                kr = 0;
+
+                                h_a = 2;
+                                c_a = 6;
+                                l_a = 5;
+                                b_a = 2;
+                            }
 
                             if (clickedItem.getType().name().endsWith("_AXE")) {
                                 itemMeta.removeAttributeModifier(Attribute.ATTACK_DAMAGE);
                                 itemMeta.removeAttributeModifier(Attribute.ATTACK_SPEED);
 
                                 NamespacedKey key = new NamespacedKey("starforce", MODIFIER_NAME + "_" + clickedItem.getType().name().toLowerCase());
-                                AttributeModifier modifier_a = new AttributeModifier(key, 10 + (starCount * 2) , AttributeModifier.Operation.ADD_NUMBER);
-                                AttributeModifier modifier_s = new AttributeModifier(key, -3.0, AttributeModifier.Operation.ADD_NUMBER);
+                                AttributeModifier modifier_a = new AttributeModifier(key, a_ad + (starCount * 2) , AttributeModifier.Operation.ADD_NUMBER);
+                                AttributeModifier modifier_s = new AttributeModifier(key, a_as, AttributeModifier.Operation.ADD_NUMBER);
 
                                 itemMeta.addAttributeModifier(Attribute.ATTACK_DAMAGE, modifier_a);
                                 itemMeta.addAttributeModifier(Attribute.ATTACK_SPEED, modifier_s);
@@ -138,8 +190,8 @@ public class ClickAnvil implements Listener {
                                 itemMeta.removeAttributeModifier(Attribute.ATTACK_SPEED);
 
                                 NamespacedKey key = new NamespacedKey("starforce", MODIFIER_NAME + "_" + clickedItem.getType().name().toLowerCase());
-                                AttributeModifier modifier_a = new AttributeModifier(key, 8, AttributeModifier.Operation.ADD_NUMBER);
-                                AttributeModifier modifier_s = new AttributeModifier(key, -2.4 + (starCount * 0.2) , AttributeModifier.Operation.ADD_NUMBER);
+                                AttributeModifier modifier_a = new AttributeModifier(key, s_ad, AttributeModifier.Operation.ADD_NUMBER);
+                                AttributeModifier modifier_s = new AttributeModifier(key, s_as + (starCount * 0.2) , AttributeModifier.Operation.ADD_NUMBER);
 
                                 itemMeta.addAttributeModifier(Attribute.ATTACK_DAMAGE, modifier_a);
                                 itemMeta.addAttributeModifier(Attribute.ATTACK_SPEED, modifier_s);
@@ -149,9 +201,9 @@ public class ClickAnvil implements Listener {
                                 itemMeta.removeAttributeModifier(Attribute.KNOCKBACK_RESISTANCE);
 
                                 NamespacedKey key = new NamespacedKey("starforce", MODIFIER_NAME + "_" + clickedItem.getType().name().toLowerCase());
-                                AttributeModifier modifier_a = new AttributeModifier(key, 3 + starCount , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HEAD.getGroup());
-                                AttributeModifier modifier_at = new AttributeModifier(key, 3 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HEAD.getGroup());
-                                AttributeModifier modifier_kr = new AttributeModifier(key, 0.1 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HEAD.getGroup());
+                                AttributeModifier modifier_a = new AttributeModifier(key, h_a + starCount , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HEAD.getGroup());
+                                AttributeModifier modifier_at = new AttributeModifier(key, at , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HEAD.getGroup());
+                                AttributeModifier modifier_kr = new AttributeModifier(key, kr , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HEAD.getGroup());
 
                                 itemMeta.addAttributeModifier(Attribute.ARMOR, modifier_a);
                                 itemMeta.addAttributeModifier(Attribute.ARMOR_TOUGHNESS, modifier_at);
@@ -163,9 +215,9 @@ public class ClickAnvil implements Listener {
                                 if (starCount != 0) itemMeta.removeAttributeModifier(Attribute.MAX_HEALTH);
 
                                 NamespacedKey key = new NamespacedKey("starforce", MODIFIER_NAME + "_" + clickedItem.getType().name().toLowerCase());
-                                AttributeModifier modifier_a = new AttributeModifier(key, 8 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.CHEST.getGroup());
-                                AttributeModifier modifier_at = new AttributeModifier(key, 3 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.CHEST.getGroup());
-                                AttributeModifier modifier_kr = new AttributeModifier(key, 0.1 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.CHEST.getGroup());
+                                AttributeModifier modifier_a = new AttributeModifier(key, c_a , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.CHEST.getGroup());
+                                AttributeModifier modifier_at = new AttributeModifier(key, at , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.CHEST.getGroup());
+                                AttributeModifier modifier_kr = new AttributeModifier(key, kr , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.CHEST.getGroup());
                                 AttributeModifier modifier_mh = new AttributeModifier(key, starCount * 2 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.CHEST.getGroup());
 
                                 itemMeta.addAttributeModifier(Attribute.ARMOR, modifier_a);
@@ -179,9 +231,9 @@ public class ClickAnvil implements Listener {
                                 if (starCount != 0) itemMeta.removeAttributeModifier(Attribute.MAX_HEALTH);
 
                                 NamespacedKey key = new NamespacedKey("starforce", MODIFIER_NAME + "_" + clickedItem.getType().name().toLowerCase());
-                                AttributeModifier modifier_a = new AttributeModifier(key, 6 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.LEGS.getGroup());
-                                AttributeModifier modifier_at = new AttributeModifier(key, 3 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.LEGS.getGroup());
-                                AttributeModifier modifier_kr = new AttributeModifier(key, 0.1 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.LEGS.getGroup());
+                                AttributeModifier modifier_a = new AttributeModifier(key, l_a , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.LEGS.getGroup());
+                                AttributeModifier modifier_at = new AttributeModifier(key, at , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.LEGS.getGroup());
+                                AttributeModifier modifier_kr = new AttributeModifier(key, kr , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.LEGS.getGroup());
                                 AttributeModifier modifier_mh = new AttributeModifier(key, starCount * 2 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.LEGS.getGroup());
 
                                 itemMeta.addAttributeModifier(Attribute.ARMOR, modifier_a);
@@ -195,9 +247,9 @@ public class ClickAnvil implements Listener {
                                 if (starCount != 0) itemMeta.removeAttributeModifier(Attribute.MOVEMENT_SPEED);
 
                                 NamespacedKey key = new NamespacedKey("starforce", MODIFIER_NAME + "_" + clickedItem.getType().name().toLowerCase());
-                                AttributeModifier modifier_a = new AttributeModifier(key, 3 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.FEET.getGroup());
-                                AttributeModifier modifier_at = new AttributeModifier(key, 3 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.FEET.getGroup());
-                                AttributeModifier modifier_kr = new AttributeModifier(key, 0.1 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.FEET.getGroup());
+                                AttributeModifier modifier_a = new AttributeModifier(key, b_a , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.FEET.getGroup());
+                                AttributeModifier modifier_at = new AttributeModifier(key, at , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.FEET.getGroup());
+                                AttributeModifier modifier_kr = new AttributeModifier(key, kr , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.FEET.getGroup());
                                 AttributeModifier modifier_ms = new AttributeModifier(key, starCount * 0.05 , AttributeModifier.Operation.ADD_SCALAR, EquipmentSlot.FEET.getGroup());
 
                                 itemMeta.addAttributeModifier(Attribute.ARMOR, modifier_a);
@@ -232,10 +284,10 @@ public class ClickAnvil implements Listener {
                                 itemMeta.setUnbreakable(true);
 
                                 String originalName = itemMeta.hasDisplayName() ? itemMeta.getDisplayName() : clickedItem.getType().name();
-                                String legendaryName = ChatColor.GOLD + "전설의 " + clickedItem.getType().name().toLowerCase();
+                                String legendaryName = ChatColor.GOLD + clickedItem.getType().name().toLowerCase();
                                 itemMeta.setDisplayName(legendaryName);
 
-                                Bukkit.broadcastMessage(ChatColor.GOLD + player.getName() + " 이/가 " + legendaryName + "을(를) 제작했습니다");
+                                Bukkit.broadcastMessage(ChatColor.GOLD + player.getName() + " 이/가 전설의 " + legendaryName + "을(를) 제작했습니다");
 
                             }
                             itemMeta.setLore(lore);
@@ -255,13 +307,81 @@ public class ClickAnvil implements Listener {
                             if (starCount > 5) {
                                 starCount--;
 
+                                if (isDestroyed) {
+                                    // 아이템 파괴 로직
+                                    player.getInventory().removeItem(playerOriginalItems.get(player));
+                                    clickedInventory.setItem(13, null);
+                                    playerOriginalItems.remove(player);
+                                    player.sendMessage(ChatColor.RED + "아이템이 파괴되었습니다");
+                                    player.playSound(player.getLocation(), Sound.ENTITY_ITEM_BREAK, 1.0f, 1.0f);
+                                    return;
+                                }
+
+                                double s_ad = 0;
+                                double s_as = 0;
+
+                                double a_ad = 0;
+                                double a_as = 0;
+
+                                double at = 0;
+                                double kr = 0;
+
+                                double h_a = 0;
+                                double c_a = 0;
+                                double l_a = 0;
+                                double b_a = 0;
+
+                                if (clickedItem.getType().name().contains("NETHERITE")) {
+                                    s_ad = 8;
+                                    s_as = -2.4;
+
+                                    a_ad = 10;
+                                    a_as = -3.0;
+
+                                    at = 3;
+                                    kr = 0.1;
+
+                                    h_a = 3;
+                                    c_a = 8;
+                                    l_a = 6;
+                                    b_a = 3;
+                                } else if (clickedItem.getType().name().contains("DIAMOND")) {
+                                    s_ad = 7;
+                                    s_as = -2.4;
+
+                                    a_ad = 9;
+                                    a_as = -3.0;
+
+                                    at = 2;
+                                    kr = 0;
+
+                                    h_a = 3;
+                                    c_a = 8;
+                                    l_a = 6;
+                                    b_a = 3;
+                                } else if (clickedItem.getType().name().contains("IRON")) {
+                                    s_ad = 6;
+                                    s_as = -2.4;
+
+                                    a_ad = 9;
+                                    a_as = -3.1;
+
+                                    at = 0;
+                                    kr = 0;
+
+                                    h_a = 2;
+                                    c_a = 6;
+                                    l_a = 5;
+                                    b_a = 2;
+                                }
+
                                 if (clickedItem.getType().name().endsWith("_AXE")) {
                                     itemMeta.removeAttributeModifier(Attribute.ATTACK_DAMAGE);
                                     itemMeta.removeAttributeModifier(Attribute.ATTACK_SPEED);
 
                                     NamespacedKey key = new NamespacedKey("starforce", MODIFIER_NAME + "_" + clickedItem.getType().name().toLowerCase());
-                                    AttributeModifier modifier_a = new AttributeModifier(key, 10 + (starCount * 2) , AttributeModifier.Operation.ADD_NUMBER);
-                                    AttributeModifier modifier_s = new AttributeModifier(key, -3.0, AttributeModifier.Operation.ADD_NUMBER);
+                                    AttributeModifier modifier_a = new AttributeModifier(key, a_ad + (starCount * 2) , AttributeModifier.Operation.ADD_NUMBER);
+                                    AttributeModifier modifier_s = new AttributeModifier(key, a_as, AttributeModifier.Operation.ADD_NUMBER);
 
                                     itemMeta.addAttributeModifier(Attribute.ATTACK_DAMAGE, modifier_a);
                                     itemMeta.addAttributeModifier(Attribute.ATTACK_SPEED, modifier_s);
@@ -270,8 +390,8 @@ public class ClickAnvil implements Listener {
                                     itemMeta.removeAttributeModifier(Attribute.ATTACK_SPEED);
 
                                     NamespacedKey key = new NamespacedKey("starforce", MODIFIER_NAME + "_" + clickedItem.getType().name().toLowerCase());
-                                    AttributeModifier modifier_a = new AttributeModifier(key, 8, AttributeModifier.Operation.ADD_NUMBER);
-                                    AttributeModifier modifier_s = new AttributeModifier(key, -2.4 + (starCount * 0.2) , AttributeModifier.Operation.ADD_NUMBER);
+                                    AttributeModifier modifier_a = new AttributeModifier(key, s_ad, AttributeModifier.Operation.ADD_NUMBER);
+                                    AttributeModifier modifier_s = new AttributeModifier(key, s_as + (starCount * 0.2) , AttributeModifier.Operation.ADD_NUMBER);
 
                                     itemMeta.addAttributeModifier(Attribute.ATTACK_DAMAGE, modifier_a);
                                     itemMeta.addAttributeModifier(Attribute.ATTACK_SPEED, modifier_s);
@@ -281,9 +401,9 @@ public class ClickAnvil implements Listener {
                                     itemMeta.removeAttributeModifier(Attribute.KNOCKBACK_RESISTANCE);
 
                                     NamespacedKey key = new NamespacedKey("starforce", MODIFIER_NAME + "_" + clickedItem.getType().name().toLowerCase());
-                                    AttributeModifier modifier_a = new AttributeModifier(key, 3 + starCount , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HEAD.getGroup());
-                                    AttributeModifier modifier_at = new AttributeModifier(key, 3 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HEAD.getGroup());
-                                    AttributeModifier modifier_kr = new AttributeModifier(key, 0.1 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HEAD.getGroup());
+                                    AttributeModifier modifier_a = new AttributeModifier(key, h_a + starCount , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HEAD.getGroup());
+                                    AttributeModifier modifier_at = new AttributeModifier(key, at , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HEAD.getGroup());
+                                    AttributeModifier modifier_kr = new AttributeModifier(key, kr , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HEAD.getGroup());
 
                                     itemMeta.addAttributeModifier(Attribute.ARMOR, modifier_a);
                                     itemMeta.addAttributeModifier(Attribute.ARMOR_TOUGHNESS, modifier_at);
@@ -295,9 +415,9 @@ public class ClickAnvil implements Listener {
                                     if (starCount != 0) itemMeta.removeAttributeModifier(Attribute.MAX_HEALTH);
 
                                     NamespacedKey key = new NamespacedKey("starforce", MODIFIER_NAME + "_" + clickedItem.getType().name().toLowerCase());
-                                    AttributeModifier modifier_a = new AttributeModifier(key, 8 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.CHEST.getGroup());
-                                    AttributeModifier modifier_at = new AttributeModifier(key, 3 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.CHEST.getGroup());
-                                    AttributeModifier modifier_kr = new AttributeModifier(key, 0.1 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.CHEST.getGroup());
+                                    AttributeModifier modifier_a = new AttributeModifier(key, c_a , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.CHEST.getGroup());
+                                    AttributeModifier modifier_at = new AttributeModifier(key, at , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.CHEST.getGroup());
+                                    AttributeModifier modifier_kr = new AttributeModifier(key, kr , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.CHEST.getGroup());
                                     AttributeModifier modifier_mh = new AttributeModifier(key, starCount * 2 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.CHEST.getGroup());
 
                                     itemMeta.addAttributeModifier(Attribute.ARMOR, modifier_a);
@@ -311,9 +431,9 @@ public class ClickAnvil implements Listener {
                                     if (starCount != 0) itemMeta.removeAttributeModifier(Attribute.MAX_HEALTH);
 
                                     NamespacedKey key = new NamespacedKey("starforce", MODIFIER_NAME + "_" + clickedItem.getType().name().toLowerCase());
-                                    AttributeModifier modifier_a = new AttributeModifier(key, 6 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.LEGS.getGroup());
-                                    AttributeModifier modifier_at = new AttributeModifier(key, 3 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.LEGS.getGroup());
-                                    AttributeModifier modifier_kr = new AttributeModifier(key, 0.1 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.LEGS.getGroup());
+                                    AttributeModifier modifier_a = new AttributeModifier(key, l_a , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.LEGS.getGroup());
+                                    AttributeModifier modifier_at = new AttributeModifier(key, at , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.LEGS.getGroup());
+                                    AttributeModifier modifier_kr = new AttributeModifier(key, kr , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.LEGS.getGroup());
                                     AttributeModifier modifier_mh = new AttributeModifier(key, starCount * 2 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.LEGS.getGroup());
 
                                     itemMeta.addAttributeModifier(Attribute.ARMOR, modifier_a);
@@ -327,9 +447,9 @@ public class ClickAnvil implements Listener {
                                     if (starCount != 0) itemMeta.removeAttributeModifier(Attribute.MOVEMENT_SPEED);
 
                                     NamespacedKey key = new NamespacedKey("starforce", MODIFIER_NAME + "_" + clickedItem.getType().name().toLowerCase());
-                                    AttributeModifier modifier_a = new AttributeModifier(key, 3 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.FEET.getGroup());
-                                    AttributeModifier modifier_at = new AttributeModifier(key, 3 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.FEET.getGroup());
-                                    AttributeModifier modifier_kr = new AttributeModifier(key, 0.1 , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.FEET.getGroup());
+                                    AttributeModifier modifier_a = new AttributeModifier(key, b_a , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.FEET.getGroup());
+                                    AttributeModifier modifier_at = new AttributeModifier(key, at , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.FEET.getGroup());
+                                    AttributeModifier modifier_kr = new AttributeModifier(key, kr , AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.FEET.getGroup());
                                     AttributeModifier modifier_ms = new AttributeModifier(key, starCount * 0.05 , AttributeModifier.Operation.ADD_SCALAR, EquipmentSlot.FEET.getGroup());
 
                                     itemMeta.addAttributeModifier(Attribute.ARMOR, modifier_a);
@@ -374,7 +494,7 @@ public class ClickAnvil implements Listener {
                         }
                     }
                 } else {
-                    player.sendMessage(ChatColor.DARK_PURPLE + "별조각" + ChatColor.RED + "이 부족합니다!");
+                    player.sendMessage(ChatColor.DARK_PURPLE + "\"별조각\"" + ChatColor.RED + "이 부족합니다!");
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                 }
             }
@@ -382,12 +502,12 @@ public class ClickAnvil implements Listener {
     }
 
 
-    private boolean hasValidStarPiece(Player player) {
+    private boolean hasValidStarPiece(Player player, int starcount) {
         for (ItemStack item : player.getInventory().getContents()) {
             if (item != null && item.getType() == Material.ECHO_SHARD) {
                 ItemMeta meta = item.getItemMeta();
                 if (meta != null && meta.hasDisplayName() && meta.getDisplayName().equals(ChatColor.DARK_PURPLE + "별조각")) {
-                    if (item.getAmount() > 0) {
+                    if (item.getAmount() >= starcount + 1) {
                         return true;
                     }
                 }
@@ -396,23 +516,21 @@ public class ClickAnvil implements Listener {
         return false;
     }
 
-    private void removeStarPiece(Player player) {
+    private void removeStarPiece(Player player, int starcount) {
         for (ItemStack item : player.getInventory().getStorageContents()) {
             if (item != null && item.getType() == Material.ECHO_SHARD) {
                 ItemMeta meta = item.getItemMeta();
                 if (meta != null && meta.getDisplayName().equals(ChatColor.DARK_PURPLE + "별조각")) {
-                    int newAmount = item.getAmount() - 1;
-                    if (newAmount <= 0) {
-                        player.getInventory().remove(item);
-                    } else {
-                        item.setAmount(newAmount);
-                    }
+                    ItemStack itemToRemove = item.clone();
+                    itemToRemove.setAmount(starcount + 1);
+                    player.getInventory().removeItem(itemToRemove);
                     player.updateInventory();
                     break;
                 }
             }
         }
     }
+
 
     private void syncItemWithInventory(Player player, ItemStack originalItem, ItemStack modifiedItem) {
         for (int i = 0; i < player.getInventory().getSize(); i++) {
@@ -428,9 +546,14 @@ public class ClickAnvil implements Listener {
     private boolean isAllowedItemType(Material material) {
         Set<Material> allowedItemTypes = EnumSet.of(
                 Material.NETHERITE_HELMET, Material.NETHERITE_CHESTPLATE, Material.NETHERITE_LEGGINGS, Material.NETHERITE_BOOTS,
+                Material.DIAMOND_HELMET, Material.DIAMOND_CHESTPLATE, Material.DIAMOND_LEGGINGS, Material.DIAMOND_BOOTS,
+                Material.IRON_HELMET, Material.IRON_CHESTPLATE, Material.IRON_LEGGINGS, Material.IRON_BOOTS,
 
-                Material.NETHERITE_SWORD,
-                Material.NETHERITE_AXE, Material.ELYTRA, Material.TRIDENT, Material.BOW
+                Material.NETHERITE_SWORD, Material.NETHERITE_AXE, Material.NETHERITE_PICKAXE, Material.NETHERITE_SHOVEL,
+                Material.DIAMOND_SWORD, Material.DIAMOND_AXE, Material.DIAMOND_PICKAXE, Material.DIAMOND_SHOVEL,
+                Material.IRON_SWORD, Material.IRON_AXE, Material.IRON_PICKAXE, Material.IRON_SHOVEL,
+                Material.ELYTRA, Material.TRIDENT, Material.BOW
+
 
                 //Material.SHIELD, Material.CROSSBOW,
                 //Material.FISHING_ROD, Material.MACE
@@ -454,6 +577,7 @@ public class ClickAnvil implements Listener {
             if (!(starCount >= 10)) {
                 lore.add(ChatColor.GREEN + "- 성공 확률: " + ChatColor.YELLOW + successRates[starCount] + "%");
                 lore.add(ChatColor.RED + "- 파괴 확률: " + ChatColor.YELLOW + destructionRates[starCount] + "%");
+                lore.add(ChatColor.YELLOW + "- 필요한 별조각: " + (starCount + 1) + "개");
             }
             if (starCount >= 5) {
                 lore.add(ChatColor.DARK_AQUA + "- 강화 실패 시 하락 확률이 있습니다.");
@@ -505,6 +629,7 @@ public class ClickAnvil implements Listener {
             if (!(starCount >= 10)) {
                 lore.add(ChatColor.GREEN + "- 성공 확률: " + ChatColor.YELLOW + successRates[starCount] + "%");
                 lore.add(ChatColor.RED + "- 파괴 확률: " + ChatColor.YELLOW + destructionRates[starCount] + "%");
+                lore.add(ChatColor.YELLOW + "- 필요한 별조각: " + (1 + starCount) + "개");
             }
         }
 

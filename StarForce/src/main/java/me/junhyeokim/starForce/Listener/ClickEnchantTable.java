@@ -130,7 +130,7 @@ public class ClickEnchantTable implements Listener {
 
                     }
                 } else {
-                    player.sendMessage(ChatColor.GOLD + "별가루" + ChatColor.RED + "가 부족합니다!");
+                    player.sendMessage(ChatColor.GOLD + "\"별가루\"" + ChatColor.RED + "가 부족합니다!");
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                 }
             }
@@ -191,8 +191,8 @@ public class ClickEnchantTable implements Listener {
     // 허용된 아이템 종류를 확인하는 메서드
     private boolean isAllowedItemType(Material material) {
         Set<Material> allowedItemTypes = EnumSet.of(
-                Material.DIAMOND_HELMET, Material.DIAMOND_CHESTPLATE, Material.DIAMOND_LEGGINGS, Material.DIAMOND_BOOTS,
                 Material.NETHERITE_HELMET, Material.NETHERITE_CHESTPLATE, Material.NETHERITE_LEGGINGS, Material.NETHERITE_BOOTS,
+                Material.DIAMOND_HELMET, Material.DIAMOND_CHESTPLATE, Material.DIAMOND_LEGGINGS, Material.DIAMOND_BOOTS,
                 Material.IRON_HELMET, Material.IRON_CHESTPLATE, Material.IRON_LEGGINGS, Material.IRON_BOOTS,
                 Material.GOLDEN_HELMET, Material.GOLDEN_CHESTPLATE, Material.GOLDEN_LEGGINGS, Material.GOLDEN_BOOTS,
                 Material.LEATHER_HELMET, Material.LEATHER_CHESTPLATE, Material.LEATHER_LEGGINGS, Material.LEATHER_BOOTS,
